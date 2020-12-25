@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+    <title>Original MBTA Map</title>
+    <style>
+        .line-button {
+            color: white;
+            font-size: 15px;
+            margin: 5px;
+            font-family: "Helvetica Neue", "Arial";
+            width: 230px;
+
+        }
+
+        .title {
+            font-family: "Raleway", "helvetica Neue", "Arial";
+        }
+    </style>
+</head>
+
+<body>
+    <script src="riderData.js"></script>
+    <script src="misleadingData.js"></script>
+    <script src="originalRoutes.js"></script>
+    <script src="precalculatedDistances.js"></script>
+    <script>
+        let toggled = [];
+        let graph = {};
+        let colors = [
+            [255, 51, 51], //light red
+            [255, 153, 51], //orange
+            [255, 255, 51], //yellow
+            [153, 255, 51], //lime
+            [51, 255, 51], //green
+            [51, 255, 153], //lighter
+            [51, 153, 255], //blue
+            [51, 51, 255], //darker blue
+            [153, 51, 255], //purple
+            [255, 51, 255], //light pink
+            [153, 0, 0], //dark red
+        ];
+
+        graph.left = data.reduce((min, p) => p.x < min ? p.x : min, data[0].x); //set boundaries for the displaying of the map
+        graph.right = data.reduce((max, p) => p.x > max ? p.x : max, data[0].x);
+        graph.lower = data.reduce((min, p) => p.y < min ? p.y : min, data[0].y);
+        graph.upper = data.reduce((max, p) => p.y > max ? p.y : max, data[0].y);
+
+        let info;
+        let buttons = [];
+        let container;
+
+
+        function setup() {
+            createCanvas(800, 800);
+            container = createDiv()
+                .position(850, 50);
+            container.elt.style.width = "240px";
+
+            buttons[0] = createButton("View all")
+                .parent(container)
+                .addClass("line-button")
+                .mouseClicked(() => clickButton(-1));
+
+            buttons[0].elt.style.backgroundColor = "black";
+            buttons[0].elt.style.fontSize = "20px";
+
+            showAll();
+            viewInfo();
+
+
+
+            for (let i = 1; i < routes.lines.length + 1; i++) {
+                buttons[i] = createButton("Line " + i, i)
+                    .parent(container)
+                    .addClass("line-button")
+                    .mouseClicked(() => clickButton(i - 1));
+                buttons[i].elt.style.backgroundColor = "rgb(" + colors[i - 1][0] + ", " + colors[i - 1][1] + ", " +
+                    colors[i - 1][2] + ")";
+                buttons[i].elt.style.color = (colors[i - 1][0] * 299 + colors[i - 1][1] * 587 + colors[i - 1][2] * 114) /
+                    1000 > 125 ? 'black' : 'white';
+                buttons[i].elt.style.width = "70px";
+
+
+                //let col = (colors[i - 1][0] * 299 + colors[i - 1][1]  * 587 + colors[i - 1][2]  * 114) / 1000 > 125 ? 'black' : 'white'
+                //opt.nextSibling.innerHTML = "<button style = 'color: " + col + "; background-color: rgb(" + colors[i - 1][0] + ", " + colors[i - 1][1] + ", " + colors[i - 1][2] + ")' >Line " + i + "</button><br/>"
+            }
+
+
+            function clickButton(index) {
+                if (index < 0) {
+                    showAll();
+                    info.remove();
+                    viewInfo();
+                } else {
+                    background(0);
+
+
+                    stroke(0, 200, 200);
+
+                    noFill();
+                    strokeWeight(2);
+                    //draw all thhe lines
+
+                    stroke(colors[index][0], colors[index][1], colors[index][2]);
+                    //draw the line
+                    beginShape();
+                    for (let i = 0; i < routes.lines[index].length; i++) {
+                        vertex(...makeVisible(routes.lines[index][i]));
+                        ellipse(...makeVisible(routes.lines[index][i]), 9);
+                    }
+                    endShape();
+
+                    //draw the stops
+                    stroke(255);
+                    strokeWeight(1);
+
+                    for (let i = 0; i < data.length; i++) {
+                        let popularity = data[i].entrances + data[i].exits;
+                        fill(map(popularity, 0, 30, 0, 255), map(popularity, 30, 300, 0, 255), map(popularity, 300,
+                            3000, 0, 255));
+                        ellipse(...makeVisible(data[i]), 6);
+                    }
+
+
+                    info.remove();
+                    viewInfo(index);
+                }
+
+            }
+        }
+
+        function makeVisible(obj) {
+            return [map(obj.x, graph.left, graph.right, 50, 750), map(obj.y, graph.upper, graph.lower, 50, 750)];
+        }
+
+
+
+        function viewInfo(index) {
+            let defaultText =
+                `
+            <h1 class = "title" >Welcome to this interactive demo</h1>
+            <p>Choose a bus line to learn more about it. Here are some overall statistics about the proposed bus system:</p>
+                <ul>
+                <li>This bus system has ${routes.lines.length} lines isntead of the original 15</li>
+                <li>This bus system covers ${333 - routes.info.missing} out of the 332 original bus stops</li>
+                <li>The stops overlap ${routes.info.overlap} times instead of the original 168 times</li>
+                <li>The lines travel a total of ${Math.round(routes.info.totalDist/100)/10}km, over ${Math.round(37.4860 - routes.info.totalDist/10000)*10}km less than the original 304.9km</li>
+                </ul>
+            `;
+            if (index >= 0) {
+                let stats = calcStats(index);
+                let toggleText =
+                    `
+                <h1 class = "title" >Line ${index + 1}:</h1>
+                <ul>
+                <li>This line has ${routes.lines[index].length} stops</li>
+                <li>This line covers ${Math.round(stats.dist/100)/10}km (${Math.round(stats.dist/160.9344)/10}mi) </li>
+                <li>On a weekday, ${Math.round(stats.entrances)} people enter an average inbound bus on this line. </li>
+                <li>This line overlaps with another line ${Math.round(stats.overlaps)} times;</li>
+                </ul>
+                `;
+                info = createDiv(toggleText);
+            } else {
+                info = createDiv(defaultText);
+            }
+            info.position(850, 375);
+
+        }
+
+        function showAll() {
+            background(0);
+            stroke(0, 200, 200);
+            noFill();
+
+            strokeWeight(2);
+            //draw all the lines
+            for (let i = 0; i < routes.lines.length; i++) {
+                if (i > colors.length - 1) { //add random colors if we need them
+                    let r = round(random(50, 255));
+                    let g = (r < 100) ? round(random(100, 255)) : round(random(50, 255));
+                    let b = (r + g < 255) ? round(random(200, 255)) : round(random(50, 255));
+                    colors.push([r, g, b]);
+                }
+
+                stroke(colors[i]);
+                //draw the line
+                beginShape();
+                for (let j = 0; j < routes.lines[i].length; j++) {
+                    vertex(...makeVisible(routes.lines[i][j]));
+                }
+                endShape();
+            }
+
+            //draw the stops
+            stroke(255);
+            strokeWeight(1);
+
+            for (let i = 0; i < data.length; i++) {
+                let popularity = data[i].entrances + data[i].exits;
+                fill(map(popularity, 0, 30, 0, 255), map(popularity, 30, 300, 0, 255), map(popularity, 300, 3000, 0,
+                    255));
+                ellipse(...makeVisible(data[i]), 6);
+            }
+        }
+
+        function calcStats(line) {
+
+            let dist = 0;
+            let entrances = 0;
+            let exits = 0;
+            let overlaps = 0;
+            let crowding = [];
+
+            for (let i = 0; i < data.length; i++) {
+                crowding[i] = 0;
+            }
+
+            for (let line of routes.lines) {
+                for (let i = 0; i < line.length; i++) {
+                    crowding[line[i].index]++;
+                }
+            }
+
+            for (let i = 0; i < routes.lines[line].length; i++) {
+                if (i < routes.lines[line].length - 1) {
+                    dist += distances[routes.lines[line][i].index][routes.lines[line][i + 1].index];
+                }
+
+                entrances += routes.lines[line][i].entrances;
+                exits += routes.lines[line][i].exits;
+
+                let add = crowding[routes.lines[line][i].index];
+                overlaps += (add < 2) ? 0 : add - 1;
+
+            }
+
+            return {
+                dist: dist,
+                entrances: entrances,
+                exits: exits,
+                overlaps: overlaps
+            };
+        }
+    </script>
+</body>
+
+</html>

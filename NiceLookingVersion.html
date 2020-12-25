@@ -1,0 +1,243 @@
+<!DOCTYPE html> <!-- Brayden Goldstein-Gelb & Henry Ayanna -->
+<html>
+
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+  <meta charset="utf-8">
+  <title>Efficient Lines</title>
+</head>
+
+<body>
+  <script src="riderData.js"></script>
+  <script src="originalRoutes.js"></script>
+  <script src="precalculatedDistances.js"></script>
+  <script>
+    const mutationRate = .001;
+    const ordersPerGen = 2000;
+
+    let bestEver;
+    let allOrders;
+    let info;
+
+    let recordDist = Infinity;
+    let generation = 1;
+
+    let colors = [
+      [255, 51, 51], //light red
+      [255, 153, 51], //orange
+      [255, 255, 51], //yellow
+      [153, 255, 51], //lime
+      [51, 255, 51], //green
+      [51, 255, 153], //lighter
+      [51, 153, 255], //blue
+      [51, 51, 255], //darker blue
+      [153, 51, 255], //purple
+      [255, 51, 255], //light pink
+      [255, 51, 153], //dark pink
+      [153, 0, 0], //dark red
+      [153, 76, 0], //brown 
+    ];
+
+    //boundaries for map
+    let boundsLeft = data.reduce((min, p) => p.x < min ? p.x : min, data[0].x);
+    let boundsRight = data.reduce((max, p) => p.x > max ? p.x : max, data[0].x);
+    let boundsUpper = data.reduce((max, p) => p.y > max ? p.y : max, data[0].y);
+    let boundsLower = data.reduce((min, p) => p.y < min ? p.y : min, data[0].y);
+
+    function setup() { //happens once on load
+      createCanvas(800, 800);
+      allOrders = [];
+
+      for (let i = 0; i < ordersPerGen; i++) { //create the orders
+        let numberOfLines = Math.floor(Math.random() * 18 + 2);
+
+        allOrders[i] = {};
+        allOrders[i].lines = [];
+        for (let j = 0; j < numberOfLines; j++) { //make 12 lines
+          let possibleChoices = data.slice(); //no duplicates
+          let numberOfStops = Math.floor(Math.random() * 38 + 2);
+
+          allOrders[i].lines[j] = [];
+
+          for (let k = 0; k < numberOfStops; k++) { //make random number of stops in each line
+            let chosenRand = Math.floor(Math.random() * possibleChoices.length);
+
+            allOrders[i].lines[j][k] = possibleChoices.splice(chosenRand, 1)[0];
+            allOrders[i].fitness = -Infinity;
+            allOrders[i].info = {};
+          } //end stops loop
+        } //end lines loop
+      } //end population loop
+
+      bestEver = Object.assign({}, allOrders[0]);
+
+    } //end setup
+
+    function draw() { //happens 60 times per second
+
+      if (generation >= 5000) { //end the simulation once we get to 5000 generations
+        noLoop();
+        console.log("Fitness: " + (bestEver.fitness / calcFitness(original.lines) * 100));
+      }
+
+      background(0);
+      noFill();
+
+      for (let i = 0; i < allOrders.length; i++) { //mutate and calculate fitness
+        allOrders[i].lines = mutate(bestEver.lines.slice()); //mutate routes
+        allOrders[i].fitness = calcFitness(allOrders[i].lines); //calculate the fitness
+        allOrders[i].info = info;
+
+        if (allOrders[i].fitness > bestEver.fitness) { //it has the best fitness ever
+          bestEver = Object.assign({}, allOrders[i]); //copy of current system
+        }
+      } //end mutate and fitness
+
+      show();
+      generation++;
+    } //end draw
+
+    function mutate(order) { //mutate function
+      let lines = order.slice();
+
+      if (Math.random() * 0.1 < mutationRate) { //add a new line to mutate overall lines
+
+        let addedLine = [];
+        let possibleChoices = data.slice(); //copy of the array
+        let numberOfStops = Math.floor(Math.random() * 28 + 2); //random integer between 2 & 30
+
+        for (let i = 0; i < numberOfStops; i++) { //add the random number of stops to it
+          let chosenRand = Math.floor(Math.random() * possibleChoices.length);
+          addedLine[i] = possibleChoices.splice(chosenRand, 1)[0]; //no longer a possibility
+        }
+
+        lines.push(addedLine); //add the line
+      } //end new line
+
+      if (lines.length < 2 && Math.random() * 0.1 < mutationRate) { //remove a random line
+        lines.splice(Math.floor(Math.random() * line.length), 1);
+      } //end remove line
+
+      for (let i = 0; i < lines.length; i++) { //loop through lines
+        let line = lines[i].slice();
+
+        for (let j = 0; j < line.length; j++) { //loop through stops in this line
+          if (Math.random() < mutationRate) { //swap this and a random stop
+            let rand = Math.floor(Math.random() * line.length);
+            [line[j], line[rand]] = [line[rand], line[j]]; //deconstruct to switch
+          }
+
+          if (lines.length < data.length && Math.random() < mutationRate) { //add a random stop
+            let possibleChoices = data.slice(); //copy of the array
+
+            for (let j = 0; j < line.length; j++) { //remove dulicates
+              possibleChoices = possibleChoices.filter(elt => elt.name != line[j].name);
+            }
+
+            if (possibleChoices.length > 0 && line.length < data.length) {
+              line.push(possibleChoices[Math.floor(Math.random() * possibleChoices.length)]);
+            }
+          } //end add random stop
+
+          if (line.length > 2 && Math.random() < mutationRate) { //delete a random one
+            line.splice(Math.floor(Math.random() * line.length), 1);
+          }
+        } //end stops loop
+
+        lines[i] = line;
+      } //end lines loop
+      return lines.slice();
+    } //end mutation function
+
+    function calcFitness(lines) { //fitness function
+      let totalPop = 0;
+      let totalDist = 0;
+      let crowding = []; //how many times each stop is used 
+      let overlap; //sum of crowding
+      let totalLength = 0; //tally of stops
+      let missing = -1; //accounts for one service bus stop
+
+      for (let i = 0; i < data.length; i++) { //start them all off at -1
+        crowding[i] = -1;
+      }
+
+      for (let line of lines) {
+        for (let i = 0; i < line.length; i++) {
+          if (i < line.length - 1) {
+            totalDist += distances[line[i].index][line[i + 1].index]; //add distances
+          }
+
+          totalPop += line[i].entrances + line[i].exits; //add both the entances and exits
+          totalLength++;
+          crowding[line[i].index]++;
+        }
+      }
+
+      while (crowding.indexOf(-1) !== -1) { //get rid of all remaining -1's
+        crowding[crowding.indexOf(-1)] = 0;
+        missing++;
+      }
+
+      overlap = crowding.reduce((total, next) => total += next, 0); //add them all up
+
+      info = { //send this data to the global variable
+        totalDist: totalDist,
+        totalPop: totalPop,
+        totalLength: totalLength,
+        overlap: overlap,
+        missing: missing,
+        len: lines.length,
+      };
+
+      return (
+        Math.log(totalPop + 1) * 50 * (1) + //Total Population
+        totalLength * 40 * (1) - //Number of Stops
+        totalDist * 0.0184 * (1) - //Distance
+        overlap * 32 * (1) - //Overlap
+        missing * 2 * (1) - //Missing
+        ((lines.length - 15) ** 2) * 2 * (1) //Number of Lines
+      );
+
+    } //end fitness function
+
+    function show() {
+      //draw current best
+      strokeWeight(2);
+
+      while (bestEver.lines.length > colors.length - 1) { //add random colors
+        let r = Math.round(Math.random() * 205 + 50); //between 50 & 255
+        let g = Math.round(Math.random() * 205 + 50);
+        let b = Math.round(Math.random() * 205 + 50);
+
+        colors.push([r, g, b]);
+      }
+
+      for (let i = 0; i < bestEver.lines.length; i++) { //loop though lines
+        stroke(colors[i]);
+
+        beginShape();
+        for (let j = 0; j < bestEver.lines[i].length; j++) {
+          vertex(...makeVisible(bestEver.lines[i][j]));
+        }
+        endShape();
+      } //end lines loop
+
+      //draw stops
+      stroke(255);
+      strokeWeight(1);
+
+      for (let i = 0; i < data.length; i++) { //loop though stops
+        let popularity = data[i].entrances + data[i].exits;
+        fill(map(popularity, 0, 30, 0, 255), map(popularity, 30, 300, 0, 255), map(popularity, 300, 3000, 0, 255));
+        ellipse(...makeVisible(data[i]), 6);
+      } //end stops loop
+    } //end show
+
+    function makeVisible(obj) {
+      return [map(obj.x, boundsLeft, boundsRight, 50, 750), map(obj.y, boundsUpper, boundsLower, 50, 750)];
+    }
+
+  </script>
+
+</body>
+</html>

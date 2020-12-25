@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+
+  <meta charset="utf-8">
+  <title>One Line</title>
+</head>
+
+<body>
+  <h1 id="text"></h1>
+  <script src="riderData.js"></script>
+  <script src="originalRoutes.js"></script>
+  <script src="precalculatedDistances.js"></script>
+  <script>
+    let bestEver = {
+      fitness: -Infinity
+    };
+    let recordDist = Infinity;
+    let lower = Infinity;
+    let upper = -Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    let mutationRate = .007;
+    let ordersPerGen = 10000;
+    let generation = 1;
+    let allOrders;
+    let graphData = [];
+    let bottomGraph;
+    let topGraph;
+    data.splice(200, 1);
+    
+
+    //----SETUP----//
+    function setup() {
+      createCanvas(1600, 800);
+      ellipseMode(CENTER);
+
+      allOrders = new Array();
+
+      for (let i = 0; i < ordersPerGen; i++) { //create the orders
+        let possibleChoices = data.slice(); //no duplicates
+        //possibleChoices.splice(200, 1);
+        allOrders[i] = new Object();
+        allOrders[i].places = new Array();
+        for (let j = 0; j < data.length - 1; j++) { //randomize stops
+          let chosenRand = floor(random(possibleChoices.length));
+          allOrders[i].places[j] = data[j];//possibleChoices.splice(chosenRand, 1)[0]; //INITIALIZE STOPS AS ORIGINAL DATA **OR** RANDOM
+          allOrders[i].fitness = -Infinity; //calcFitness(allOrders[i].places)
+          
+        }
+        
+      }
+      bestEver = Object.assign({}, allOrders[0]);
+
+      left = data.reduce((min, p) => p.x < min ? p.x : min, data[0].x); //set boundaries for the displaying of the map
+      right = data.reduce((max, p) => p.x > max ? p.x : max, data[0].x);
+      lower = data.reduce((min, p) => p.y < min ? p.y : min, data[0].y);
+      upper = data.reduce((max, p) => p.y > max ? p.y : max, data[0].y);
+      //boundaries for map
+      bottomGraph = 100;//isNaN(calcFitness(bestEver.places)) ? 100 : calcFitness(bestEver.places);
+      topGraph = 200;//calcFitness(data) * 1.2;
+
+    }
+
+    //-----DRAW----//
+
+    function draw() {
+      background(0);
+      noFill();
+
+      for (let i = 0; i < allOrders.length; i++) { //mutate and calculate fitness
+
+        allOrders[i].places = mutate(bestEver.places.slice()); //mutate routes
+        allOrders[i].fitness = calcFitness(allOrders[i].places);  //calculate the fitness
+
+        if (allOrders[i].fitness > bestEver.fitness) { //if it has the best fitness ever,
+          bestEver = Object.assign({}, allOrders[i]);
+        }
+      } //end mutate and fitness
+
+      graphData.push(bestEver.fitness);
+      show();
+      graph();
+
+      generation++;
+
+      if (generation > 5000) {
+        noLoop();
+        console.log("Fitness: " + bestEver.fitness + "\n" + (bestEver.fitness * 100/calcFitness(data)));
+      }
+
+    } //-------------end draw-------------//
+
+    function mutate(order) { //mutate function
+      let line = order.slice();
+      for (let i = 0; i < line.length; i++) {
+        if (random(1) < mutationRate) { //swap this and last one
+          let rand = floor(random(line.length));
+          [line[i], line[rand]] = [line[rand], line[i]];//deconstruct to switch
+        }
+      }
+      return line.slice();
+    }
+
+    function calcFitness(line) { //fitness function
+      let totalDist = 0;
+      let totalPop = 0;
+      for (let i = 0; i < line.length; i++) {
+        if (i < line.length - 1) {
+          totalDist += distances[line[i].index][line[i + 1].index];
+        }
+        totalPop += line[i].entrances + line[i].exits;
+      }
+
+      return -totalDist / 10000 + 200;
+
+    }
+
+
+    function show() {
+      //draw current best
+      stroke(0, 200, 200);
+      strokeWeight(2);
+
+      beginShape();
+      for (let i = 0; i < bestEver.places.length; i++) {
+        vertex(...makeVisible(bestEver.places[i]));
+      }
+      endShape();
+
+      for (let i = 0; i < data.length; i++) {
+        let popularity = data[i].entrances + data[i].exits;
+        fill(map(popularity, 0, 30, 0, 255), map(popularity, 30, 300, 0, 255), map(popularity, 300, 3000, 0, 255));
+        ellipse(...makeVisible(data[i]), 6); //popularity < 30 ? 2 : popularity < 300 ? 4 : popularity < 3000 ? 8 : 16);
+
+      }
+    }
+
+    function graph() {
+      noFill();
+      stroke(0, 200, 200);
+      beginShape();
+      for (let i = 0; i < graphData.length; i++) {
+        vertex(map(i, 0, graphData.length, 800, 1500), map(graphData[i], bottomGraph, topGraph, 700, 100));
+      }
+      endShape();
+      stroke(0, 255, 0, 150);
+      line(800, map(calcFitness(data), bottomGraph, topGraph, 700, 100), 1500, map(calcFitness(data), bottomGraph,
+        topGraph, 700, 100));
+      noStroke();
+
+      fill(255);
+      textSize(15);
+      textAlign(LEFT);
+
+      text(0, 800, 770);
+      fill(0, 255, 0, 150);
+      text(round(calcFitness(data) * 10) / 10, 1510, map(calcFitness(data), bottomGraph, topGraph, 700, 100));
+      fill(255);
+      text(round(bestEver.fitness * 10) / 10, 1510, map(bestEver.fitness, bottomGraph, topGraph, 700, 100));
+
+      textAlign(CENTER);
+
+      text(floor(graphData.length / 2), 1150, 770);
+      fill(255, 0, 0);
+      textSize(20);
+      text("Generation", 1150, 790); //label
+
+      translate(790, 400);
+      rotate(-HALF_PI);
+
+      text("Fitness", 0, -20); //label
+      textSize(15);
+      fill(255);
+      text(round(bottomGraph), -340, 0);
+      text(round((topGraph + bottomGraph) / 2), 0, 0);
+      text(round(topGraph), 340, 0);
+      rotate(HALF_PI); //make things back to normal rotation
+
+      translate(-790, -400);
+      fill(255);
+      textAlign(RIGHT);
+      //scale x
+      text(graphData.length, 1500, 770);
+      noFill();
+      stroke(255);
+      rect(800, 50, 700, 700); //box
+
+
+    }
+
+    function makeVisible(obj) {
+      return [map(obj.x, left, right, 50, 750), map(obj.y, upper, lower, 50, 750)];
+    }
+
+
+  </script>
+</body>
+
+</html>

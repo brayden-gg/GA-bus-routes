@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+
+    <meta charset="utf-8">
+    <title>Efficient Lines</title>
+</head>
+
+<body>
+    <script src="riderData.js"></script>
+    <script src="originalRoutes.js"></script>
+    <script src="precalculatedDistances.js"></script>
+    <script>
+        let shouldGraph = true;
+        let bestEver;
+        let recordDist = Infinity;
+        let graph = {
+            data: {
+                fitness: [],
+                missing: [],
+                distance: [],
+                popularity: [],
+                overlap: [],
+                totalLength: [],
+                numLines: []
+            }
+        };
+        let mutationRate = .005;
+        let ordersPerGen = 5000;
+        let generation = 1;
+        let allOrders;
+        let colors = [
+            [255, 51, 51], //light red
+            [255, 153, 51], //orange
+            [255, 255, 51], //yellow
+            [153, 255, 51], //lime
+            [51, 255, 51], //green
+            [51, 255, 153], //lighter
+            [51, 153, 255], //blue
+            [51, 51, 255], //darker blue
+            [153, 51, 255], //purple
+            [255, 51, 255], //light pink
+            [255, 51, 153], //dark pink
+            [153, 0, 0], //dark red
+            [153, 76, 0], //brown
+        ];
+        let info;
+
+        //--------***--------SETUP--------***--------// (happens once on load)
+        function setup() {
+            original.fitness = calcFitness(original.lines);
+            createCanvas(1600, 1200);
+            ellipseMode(CENTER);
+            allOrders = [];
+
+            for (let i = 0; i < ordersPerGen; i++) { //create the orders
+                allOrders[i] = new Object();
+                allOrders[i].lines = [];
+                let numberOfLines = original.lines.length; //Math.floor(Math.random() * 18 + 2);
+                for (let j = 0; j < numberOfLines; j++) { //make 12 lines
+                    allOrders[i].lines[j] = original.lines[j].slice();
+                    allOrders[i].fitness = calcFitness(allOrders[i].lines);
+                    allOrders[i].info = {
+                        missing: Infinity
+                    };
+                } //end lines loop
+            } //end population loop
+
+            bestEver = Object.assign({}, allOrders[0]);
+
+            graph.left = data.reduce((min, p) => p.x < min ? p.x : min, data[0].x); //set boundaries for the displaying of the map
+            graph.right = data.reduce((max, p) => p.x > max ? p.x : max, data[0].x);
+            graph.lower = data.reduce((min, p) => p.y < min ? p.y : min, data[0].y);
+            graph.upper = data.reduce((max, p) => p.y > max ? p.y : max, data[0].y);
+            //boundaries for map
+            graph.bottom = 0;
+            graph.top = original.fitness * 1.2;
+
+
+
+        } //-----------------end setup---------------//
+
+        //--------***--------DRAW--------***--------// (Loops 60 times per second)
+
+        function draw() {
+
+            background(0);
+            noFill();
+
+            for (let i = 0; i < allOrders.length; i++) { //mutate and calculate fitness
+
+                allOrders[i].lines = mutate(bestEver.lines.slice()); //mutate routes
+                allOrders[i].fitness = calcFitness(allOrders[i].lines); //calculate the fitness
+                allOrders[i].info = info;
+
+                if (allOrders[i].fitness > bestEver.fitness) { //if it has the best fitness ever, 
+                    bestEver = Object.assign({}, allOrders[i]);
+                    console.clear();
+                    console.table({fitness: {original: calcFitness(original.lines), new: bestEver.fitness}, generation: {new: generation}, percent: {original: "100%", new: (bestEver.fitness/calcFitness(original.lines) * 100).toFixed(2) + "%"}});
+                    console.table(bestEver.info);
+                }
+            } //end mutate and fitness
+
+
+            graph.data.fitness.push(bestEver.fitness);
+            graph.data.missing.push(bestEver.info.missing);
+            graph.data.overlap.push(bestEver.info.overlap);
+            graph.data.popularity.push(bestEver.info.totalPop);
+            graph.data.distance.push(bestEver.info.totalDist);
+            graph.data.totalLength.push(bestEver.info.totalLength);
+            graph.data.numLines.push(bestEver.lines.length);
+
+            if (shouldGraph) {
+                show();
+                //makeGraphs();
+            }
+
+            generation++;
+
+            if (generation > 5000) {
+                noLoop();
+                console.log("Fitness: " + bestEver.fitness + "\n" + (bestEver.fitness * 100 / calcFitness(original.lines)));
+                console.table({
+                    fitness: {original: calcFitness(original.lines), new: bestEver.fitness}, 
+                    generation: {                                    new: generation},
+                    percent: {original: "100%",                      new: Math.floor(bestEver.fitness/calcFitness(original.lines) * 1000)/10 + "%"}
+                    })
+                makeGraphs();
+            }
+        } //-------------end draw-------------//
+
+
+
+        function mutate(order) { //mutate function
+            let lines = order.slice();
+
+            //overall lines
+            if (Math.random() * 0.1 < mutationRate) { //add a new line
+                let addedLine = [];
+                let possibleChoices = data.slice(); //no duplicates
+                let numberOfStops = Math.floor(Math.random() * 28 + 2);
+                for (let i = 0; i < numberOfStops; i++) { //add random number of stops to it
+                    let chosenRand = Math.floor(Math.random() * possibleChoices.length);
+                    addedLine[i] = possibleChoices.splice(chosenRand, 1)[0];
+                }
+                lines.push(addedLine);
+            }
+            if (lines.length < 2 && Math.random() * 0.1 < mutationRate) { //remove a line
+                lines.splice(Math.floor(Math.random() * line.length), 1);
+            }
+
+            //individual stops within line
+            for (let i = 0; i < lines.length; i++) { //loop through lines
+                let line = lines[i].slice();
+                for (let j = 0; j < line.length; j++) { //loop through stops in this line
+                    if (Math.random() < mutationRate) { //swap this and a random one
+                        let rand = Math.floor(Math.random() * line.length);
+                        [line[j], line[rand]] = [line[rand], line[j]]; //deconstruct to switch
+                    }
+
+                    if (lines.length < data.length && Math.random() < mutationRate) { //add a random one
+                        let possibleChoices = data.slice();
+                        for (let j = 0; j < line.length; j++) { //loop through the stops in the line
+                            possibleChoices = possibleChoices.filter(elt => elt.name != line[j].name); //if they have the same name, make it not a possibility
+                        }
+                        if (possibleChoices.length > 0 && line.length < data.length) {
+                            line.push(possibleChoices[Math.floor(Math.random() * possibleChoices.length)]); //add a random from the possibilities graph.left
+                        }
+                    }
+
+                    if (line.length > 2 && Math.random() < mutationRate) { //delete a random one
+                        line.splice(Math.floor(Math.random() * line.length), 1);
+                    }
+                } //end stops loop
+                lines[i] = line;
+            } //end lines loop
+            return lines.slice();
+        }
+
+        function calcFitness(lines) { //fitness function
+            let totalDist = 0;
+            let totalPop = 0;
+            let totalLength = 0;
+            let crowding = [];
+            let missing = -1;
+
+            for (let i = 0; i < data.length; i++) {
+                crowding[i] = -1;
+            }
+
+            for (let line of lines) {
+                for (let i = 0; i < line.length; i++) {
+                    if (i < line.length - 1) {
+                        totalDist += distances[line[i].index][line[i + 1].index]; //add distance of each stop and the next one
+                    }
+                    totalPop += line[i].entrances + line[i].exits; //add both the entances and exits
+                    totalLength++;
+                    crowding[line[i].index]++;
+                }
+            }
+
+            while (crowding.indexOf(-1) !== -1) {
+                crowding[crowding.indexOf(-1)] = 0;
+                missing++;
+            }
+
+
+            let overlap = crowding.reduce((total, next) => total += next, 0);
+            info = {
+                totalDist: totalDist,
+                totalPop: totalPop,
+                totalLength: totalLength,
+                overlap: overlap,
+                missing: missing,
+                len: lines.length,
+            };
+
+            let mutationRate = .002;
+            let ordersPerGen = 3000;
+
+            return (
+                Math.log(totalPop + 1) * 50 * (1) +
+                totalLength * 40 * (1) -
+                totalDist * 0.0184 * (1) -
+                overlap * 32 * (1) -
+                missing * 2 * (1) -
+                ((lines.length - 15) ** 2) * 2 * (1)
+            );
+            // return (
+            //     Math.log(totalPop + 1) * 50 * (1) +
+            //     totalLength * 39 * (1) -
+            //     totalDist * 0.0184 * (1) -
+            //     overlap * 30 * (1) -
+            //     missing * 2 * (1) -
+            //     ((lines.length - 15) ** 2) * 2 * (1.5)
+            // );
+
+        }
+
+        function show() {
+            //draw current best
+            strokeWeight(2);
+
+            for (let i = 0; i < bestEver.lines.length; i++) {
+                if (i > colors.length - 1) { //add random colors if we need them
+                    colors.push([Math.round(Math.random() * 205 + 50), Math.round(Math.random() * 205 + 50), Math.round(
+                        Math.random() * 205 + 50)]);
+                }
+
+                stroke(colors[i]);
+                beginShape();
+                for (let j = 0; j < bestEver.lines[i].length; j++) {
+                    vertex(...makeVisible(bestEver.lines[i][j]));
+                }
+                endShape();
+            }
+
+            //draw stops
+            stroke(255);
+            strokeWeight(1);
+
+            for (let i = 0; i < data.length; i++) {
+                let popularity = data[i].entrances + data[i].exits;
+                fill(map(popularity, 0, 30, 0, 255), map(popularity, 30, 300, 0, 255), map(popularity, 300, 3000, 0,
+                    255));
+                ellipse(...makeVisible(data[i]), 6);
+            }
+        }
+
+        function makeGraphs() {
+
+            if (bestEver.fitness > graph.top * 2 / 3) { //scale graph it fitness is close to the top
+                graph.top = bestEver.fitness * 1.5;
+            }
+
+            noFill();
+            stroke(0, 200, 200);
+            beginShape();
+            for (let i = 0; i < graph.data.fitness.length; i++) {
+                if (graph.data.fitness[i] > 0) {
+                    vertex(map(i, 0, graph.data.fitness.length, 800, 1500), map(graph.data.fitness[i], graph.bottom,
+                        graph.top,
+                        700,
+                        100));
+                } else {
+                    vertex(map(i, 0, graph.data.fitness.length, 800, 1500), 750);
+                }
+            }
+            endShape();
+
+            //show other data
+            stroke(47, 142, 142);
+            beginShape();
+            for (let i = 0; i < graph.data.missing.length; i++) { //missing stops
+                vertex(map(i, 0, graph.data.missing.length, 50, 700), map(graph.data.missing[i], 0, data.length, 1100,
+                    800));
+            }
+            endShape();
+            stroke(16, 127, 18);
+            beginShape();
+            for (let i = 0; i < graph.data.totalLength.length; i++) { //total number of stops
+                vertex(map(i, 0, graph.data.totalLength.length, 50, 700), map(graph.data.totalLength[i], 0, 1000, 1100,
+                    800));
+            }
+            endShape();
+
+            stroke(255, 153, 1);
+            beginShape();
+            for (let i = 0; i < graph.data.distance.length; i++) { //total siatnce
+                vertex(map(i, 0, graph.data.distance.length, 50, 700), map(graph.data.distance[i], 200000, 800000, 1100,
+                    800));
+            }
+            endShape();
+
+            stroke(0, 0, 255);
+            beginShape();
+            for (let i = 0; i < graph.data.overlap.length; i++) { //overlapping stops
+                vertex(map(i, 0, graph.data.overlap.length, 50, 700), map(graph.data.overlap[i], 0, data.length, 1100,
+                    800));
+            }
+            endShape();
+
+            stroke(255, 16, 23);
+            beginShape();
+            for (let i = 0; i < graph.data.popularity.length; i++) { //total number of people able to use the lines
+                vertex(map(i, 0, graph.data.popularity.length, 50, 700), map(graph.data.popularity[i], 10000, 100000,
+                    1100, 800));
+            }
+            endShape();
+
+            stroke(254, 0, 255);
+            beginShape();
+            for (let i = 0; i < graph.data.numLines.length; i++) { //total number of lines
+                vertex(map(i, 0, graph.data.numLines.length, 50, 700), map(graph.data.numLines[i], 0, 60, 1100, 800));
+            }
+            endShape();
+
+            stroke(0, 255, 0, 150);
+
+            let mappedOriginalFitness = map(original.fitness, graph.bottom, graph.top, 700, 100);
+            line(800, mappedOriginalFitness, 1500, mappedOriginalFitness);
+            noStroke();
+
+            fill(255);
+            textSize(15);
+            textAlign(LEFT);
+
+            text(0, 800, 770);
+            fill(0, 255, 0, 150);
+            text(Math.round(original.fitness * 10) / 10, 1510, map(original.fitness, graph.bottom, graph.top, 700, 100));
+
+
+            fill(47, 142, 142);
+            text("Missing Stops: " + bestEver.info.missing, 710, map(bestEver.info.missing, 0, data.length, 1100, 800));
+
+
+            fill(255, 153, 1);
+            text("Total Distance: " + bestEver.info.totalDist, 710, map(bestEver.info.totalDist, 200000, 800000, 1100,
+                800));
+            fill(0, 0, 255);
+            text("Overlap: " + bestEver.info.overlap, 710, map(bestEver.info.overlap, 0, data.length, 1100, 800));
+            fill(255, 16, 23);
+            text("Total Population: " + Math.round(bestEver.info.totalPop), 710, map(bestEver.info.totalPop, 10000,
+                100000, 1100,
+                800));
+
+            fill(254, 0, 255);
+            text("Number of Lines: " + bestEver.lines.length, 710, map(bestEver.lines.length, 0, 60, 1100, 800));
+
+            fill(16, 127, 18);
+            text("Number of Stops: " + bestEver.info.totalLength, 710, map(bestEver.info.totalLength, 0, 1000, 1100,
+                800));
+
+            text(Math.round(bestEver.fitness * 10) / 10, 1510, map(bestEver.fitness, graph.bottom, graph.top, 700, 100));
+
+            fill(255);
+            textAlign(CENTER);
+
+            text(Math.floor(graph.data.fitness.length / 2), 1150, 770);
+            fill(255, 0, 0);
+            textSize(20);
+            text("Generation", 1150, 790); //label
+
+            translate(790, 400);
+            rotate(-HALF_PI);
+
+            text("Fitness", 0, -20); //label
+            textSize(15);
+            fill(255);
+            text(Math.round(graph.bottom), -340, 0);
+            text(Math.round((graph.top + graph.bottom) / 2), 0, 0);
+            text(Math.round(graph.top), 340, 0);
+            rotate(HALF_PI); //make things back to normal rotation
+
+            translate(-790, -400);
+            fill(255);
+            textAlign(RIGHT);
+            //scale x
+            text(graph.data.fitness.length, 1500, 770);
+            noFill();
+            stroke(255);
+            rect(800, 50, 700, 700); //box for fitness graph
+            rect(50, 800, 650, 350); //box for other data
+
+
+        }
+
+        function makeVisible(obj) {
+            return [map(obj.x, graph.left, graph.right, 50, 750), map(obj.y, graph.upper, graph.lower, 50, 750)];
+        }
+
+        function printSystem(system) {
+            let print = `
+      {
+    lines: [
+      `;
+            for (let i = 0; i < system.lines.length; i++) {
+                print += "[";
+                for (let j = 0; j < system.lines[i].length; j++) {
+                    print += `data[${system.lines[i][j].index}],
+          `;
+                }
+                print += `],\n    `;
+            }
+
+            print +=
+                `
+      ],
+    fitness: ${system.fitness},
+    info: {
+        totalDist: ${system.info.totalDist},
+        totalPop: ${system.info.totalPop},
+        totalLength: ${system.info.totalLength},
+        overlap: ${system.info.overlap},
+        missing: ${system.info.missing},
+        len: ${system.info.len}
+    }
+}
+`;
+            return print;
+        }
+    </script>
+
+</body>
+
+</html>
