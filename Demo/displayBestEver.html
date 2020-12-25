@@ -2,9 +2,7 @@
 <html>
 
 <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
-    <title>Original MBTA Map</title>
+    <title>Proposed MBTA Map</title>
     <style>
         .line-button {
             color: white;
@@ -22,12 +20,15 @@
 </head>
 
 <body>
-    <script src="riderData.js"></script>
-    <script src="bestEver.js"></script>
-    <script src="originalRoutes.js"></script>
-    <script src="precalculatedDistances.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+    <script src="../Data/riderData.js"></script>
+    <script src="../Data/originalRoutes.js"></script>
+    <script src="../Data/precalculatedDistances.js"></script>
+    <script src="../Generated Systems/bestEver.js"></script>
+
+
     <script>
-        routes = original;
         let toggled = [];
         let graph = {};
         let colors = [
@@ -146,7 +147,7 @@
             <p>Choose a bus line to learn more about it. Here are some overall statistics about the proposed bus system:</p>
                 <ul>
                 <li>This bus system has ${routes.lines.length} lines isntead of the original 15</li>
-                <li>This bus system covers ${333 - routes.info.missing} out of the 332 original bus stops</li>
+                <li>This bus system covers ${332 - routes.info.missing} out of the 332 original bus stops</li>
                 <li>The stops overlap ${routes.info.overlap} times instead of the original 168 times</li>
                 <li>The lines travel a total of ${Math.round(routes.info.totalDist/100)/10}km, over ${Math.round(37.4860 - routes.info.totalDist/10000)*10}km less than the original 304.9km</li>
                 </ul>

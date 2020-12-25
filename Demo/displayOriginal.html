@@ -2,8 +2,6 @@
 <html>
 
 <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
     <title>Original MBTA Map</title>
     <style>
         .line-button {
@@ -22,11 +20,13 @@
 </head>
 
 <body>
-    <script src="riderData.js"></script>
-    <script src="misleadingData.js"></script>
-    <script src="originalRoutes.js"></script>
-    <script src="precalculatedDistances.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+    <script src="../Data/riderData.js"></script>
+    <script src="../Data/originalRoutes.js"></script>
+    <script src="../Data/precalculatedDistances.js"></script>
     <script>
+        routes = original;
         let toggled = [];
         let graph = {};
         let colors = [
@@ -51,7 +51,7 @@
         let info;
         let buttons = [];
         let container;
-
+        
 
         function setup() {
             createCanvas(800, 800);
