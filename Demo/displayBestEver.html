@@ -140,15 +140,17 @@
 
 
         function viewInfo(index) {
+            let names = data.map(e => e.name);
+            let unique = names.filter((e,i)=>![...names.slice(0,i), ...names.slice(i+1)].includes(e) && !e.includes("NOT A STOP"));
             let defaultText =
                 `
             <h1 class = "title" >Welcome to this interactive demo</h1>
             <p>Choose a bus line to learn more about it. Here are some overall statistics about the proposed bus system:</p>
                 <ul>
-                <li>This bus system has ${routes.lines.length} lines isntead of the original 15</li>
-                <li>This bus system covers ${332 - routes.info.missing} out of the 332 original bus stops</li>
-                <li>The stops overlap ${routes.info.overlap} times instead of the original 168 times</li>
-                <li>The lines travel a total of ${Math.round(routes.info.totalDist/100)/10}km, over ${Math.round(37.4860 - routes.info.totalDist/10000)*10}km less than the original 304.9km</li>
+                <li>This bus system has ${routes.lines.length} lines isntead of the original ${original.lines.length}</li>
+                <li>This bus system covers ${unique.length - routes.info.missing} out of the ${unique.length} original bus stops</li>
+                <li>The stops overlap ${routes.info.overlap} times instead of the original ${original.info.overlap} times</li>
+                <li>The lines travel a total of ${Math.round(routes.info.totalDist/100)/10}km, over ${Math.round((original.info.totalDist - routes.info.totalDist)/10000)*10}km less than the original 304.9km</li>
                 </ul>
             `;
             if (index >= 0) {
