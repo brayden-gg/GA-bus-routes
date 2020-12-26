@@ -16,9 +16,13 @@
 
         .title {
             font-family: "Raleway", "helvetica Neue", "Arial";
+            font-size: 24px;
         }
 
-
+        select {
+            font-family: "Raleway", "helvetica Neue", "Arial";
+            font-size: 24px;
+        }
 
         canvas {
             background-image: url("MapBG.jpg");
@@ -185,7 +189,7 @@
                 let stats = calcStats(index);
                 let toggleText =
                     `
-                <h1 class = "title" ><select id="chooseMap"></select>: Line ${index + 1}:</h1>
+                <h1 class="title">Line ${index + 1}: <select id="chooseMap"></select></h1>
                 <ul>
                 <li>This line has ${routes.lines[index].length} stops</li>
                 <li>This line covers ${(stats.dist/1000).toFixed(1)}km (${(stats.dist/1609.344).toFixed(1)}mi) </li>
@@ -206,7 +210,6 @@
             }
 
             dropDown.selected(currentRoutesName);
-            dropDown.style('font-size', '32px')
             dropDown.changed(selectMap);
             for (let i = 1; i < routes.lines.length + 1; i++) {
                 buttons[i] = createButton("Line " + i, i)
