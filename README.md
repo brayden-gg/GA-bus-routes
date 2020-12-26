@@ -8,7 +8,7 @@ A genetic algorithm to optimize bus routes in Somerville, MA
  - Click on each route in a bus line to see it individually
  
  ### See the algorithm run in your browser
- - Choose the [randomly initialized version](http://htmlpreview.github.io/?https://github.com/brayden-gg/GA-bus-routes/blob/master/Algorithm/EfficentLines.html) or the [version that makes improvements on the existing MBTA bus system](http://htmlpreview.github.io/?https://github.com/brayden-gg/GA-bus-routes/blob/master/Algorithm/PlugInLines.html)
+ - Choose the [randomly initialized version](http://htmlpreview.github.io/?https://github.com/brayden-gg/GA-bus-routes/blob/master/Algorithm/EfficientLines.html) or the [version that makes improvements on the existing MBTA bus system](http://htmlpreview.github.io/?https://github.com/brayden-gg/GA-bus-routes/blob/master/Algorithm/plugInOriginal.html)
  - Watch the algorthm iterativly make improvements over time
  - See how the various factors contribute to a "fit" bus system
  
