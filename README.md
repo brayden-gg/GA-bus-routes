@@ -1,5 +1,6 @@
-# GA-bus-routes
-A genetic algorithm to optimize bus routes in Somerville, MA
+# The Evolution of Buses
+### A science fair project by Brayden Goldstein-Gelb and Henry Ayanna
+Frustration with my local bus system’s constant tardiness inspired me to create a genetic algorithm to improve the efficiency of the bus routes.
 
 ## Contents
 ### [Explore the different bus systems with this interactive demo](http://htmlpreview.github.io/?https://github.com/brayden-gg/GA-bus-routes/blob/master/Demo/displayResults.html)
